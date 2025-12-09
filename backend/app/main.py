@@ -1,9 +1,9 @@
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from .auth import get_current_user
-from .crud import create_job, get_jobs_by_user, get_job
-from .schemas import Job
+from auth import get_current_user
+from crud import create_job, get_jobs_by_user, get_job
+from schemas import Job
 import uuid
 import boto3
 from datetime import timedelta
