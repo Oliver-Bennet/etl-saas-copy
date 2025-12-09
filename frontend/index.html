@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ETL SaaS</title>
+  <style>
+    body { font-family: Arial; margin: 20px; }
+    .container { max-width: 600px; margin: auto; }
+    button { padding: 10px; margin: 10px 0; }
+    ul { list-style: none; padding: 0; }
+    li { margin: 10px 0; border: 1px solid #ccc; padding: 10px; }
+    #login-form, #app { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>ETL SaaS</h1>
+    <div id="login-form">
+      <input type="email" id="email" placeholder="Email">
+      <input type="password" id="password" placeholder="Password">
+      <button onclick="login()">Login</button>
+      <button onclick="signup()">Sign Up</button>
+    </div>
+    <div id="app">
+      <p>Welcome <span id="user-email"></span>! <button onclick="logout()">Logout</button></p>
+      <h2>Upload CSV</h2>
+      <input type="file" id="csv-file" accept=".csv">
+      <button onclick="uploadCSV()">Upload</button>
+      <h2>Jobs</h2>
+      <ul id="jobs-list"></ul>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/amazon-cognito-identity-js@6.3.1/dist/amazon-cognito-identity.min.js"></script>
+  <script>
+    const BACKEND_URL = 'http://etl-alb.us-east-1.elb.amazonaws.com'; // Thay ALB DNS
+    const USER_POOL_ID = 'us-east-1_XXXXX'; // Thay
+    const CLIENT_ID = 'YYYYYYYY'; // Thay
+    let token = localStorage.getItem('token');
+
+    if (token) {
+      showApp();
+      fetchJobs();
+    } else {
+      document.getElementById('login-form').style.display = 'block';
+    }
+
+    function login() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const authenticationDetails = new AmazonCognitoIdentity.AuthenticationDetails({ Username: email, Password: password });
+      const poolData = { UserPoolId: USER_POOL_ID, ClientId: CLIENT_ID };
+      const userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
+      const userData = { Username: email, Pool: userPool };
+      const cognitoUser = new AmazonCognitoIdentity.CognitoUser(userData);
+      cognitoUser.authenticateUser(authenticationDetails, {
+        onSuccess: (result) => {
+          token = result.getAccessToken().getJwtToken();
+          localStorage.setItem('token', token);
+          showApp();
+          fetchJobs();
+        },
+        onFailure: (err) => alert('Error: ' + err.message)
+      });
+    }
+
+    function signup() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const poolData = { UserPoolId: USER_POOL_ID, ClientId: CLIENT_ID };
+      const userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
+      userPool.signUp(email, password, [], null, (err, result) => {
+        if (err) alert('Error: ' + err.message);
+        else alert('Signed up! Login now.');
+      });
+    }
+
+    function logout() {
+      localStorage.removeItem('token');
+      token = null;
+      document.getElementById('app').style.display = 'none';
+      document.getElementById('login-form').style.display = 'block';
+    }
+
+    function showApp() {
+      document.getElementById('login-form').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      document.getElementById('user-email').innerText = 'User'; // Có thể parse token
+    }
+
+    function uploadCSV() {
+      const file = document.getElementById('csv-file').files[0];
+      if (!file) return alert('Chọn file CSV');
+      const formData = new FormData();
+      formData.append('file', file);
+      fetch(`${BACKEND_URL}/api/upload`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      }).then(res => res.json()).then(data => {
+        alert('Job started: ' + data.job_id);
+        fetchJobs();
+      }).catch(err => alert('Error: ' + err));
+    }
+
+    function fetchJobs() {
+      fetch(`${BACKEND_URL}/api/jobs`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      }).then(res => res.json()).then(jobs => {
+        const list = document.getElementById('jobs-list');
+        list.innerHTML = '';
+        jobs.forEach(job => {
+          const li = document.createElement('li');
+          li.innerHTML = `${job.filename} - ${job.status}`;
+          if (job.status === 'COMPLETED') {
+            const btn = document.createElement('button');
+            btn.innerText = 'Download Parquet';
+            btn.onclick = () => {
+              fetch(`${BACKEND_URL}/api/jobs/${job.jobId}/download`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+              }).then(res => res.json()).then(data => window.location.href = data.download_url);
+            };
+            li.appendChild(btn);
+          }
+          list.appendChild(li);
+        });
+      }).catch(err => alert('Error: ' + err));
+    }
+  </script>
+</body>
+</html>
