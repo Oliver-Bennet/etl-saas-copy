@@ -1,14 +1,71 @@
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from auth import get_current_user
-from crud import create_job, get_jobs_by_user, get_job
 from schemas import Job
 import uuid
 import boto3
 from datetime import timedelta
+from pydantic import BaseModel
+import boto3
+from datetime import datetime
 
 app = FastAPI(title="ETL SaaS API")
+
+import boto3
+from datetime import datetime
+
+dynamodb = boto3.resource('dynamodb')
+JOBS_TABLE = 'JobsTable'
+
+def create_job(job_id: str, user_id: str, filename: str, key: str):
+    table = dynamodb.Table(JOBS_TABLE)
+    table.put_item(Item={
+        'jobId': job_id,
+        'userId': user_id,
+        'status': 'QUEUED',
+        'filename': filename,
+        's3_key': key,
+        'created_at': datetime.now().isoformat()
+    })
+
+def get_jobs_by_user(user_id: str):
+    table = dynamodb.Table(JOBS_TABLE)
+    response = table.scan(FilterExpression='userId = :uid', ExpressionAttributeValues={':uid': user_id})
+    return response.get('Items', [])
+
+def get_job(job_id: str):
+    table = dynamodb.Table(JOBS_TABLE)
+    response = table.get_item(Key={'jobId': job_id})
+    return response.get('Item', {})
+
+class Job(BaseModel):
+    jobId: str
+    status: str
+    filename: str
+
+dynamodb = boto3.resource('dynamodb')
+JOBS_TABLE = 'JobsTable'
+
+def create_job(job_id: str, user_id: str, filename: str, key: str):
+    table = dynamodb.Table(JOBS_TABLE)
+    table.put_item(Item={
+        'jobId': job_id,
+        'userId': user_id,
+        'status': 'QUEUED',
+        'filename': filename,
+        's3_key': key,
+        'created_at': datetime.now().isoformat()
+    })
+
+def get_jobs_by_user(user_id: str):
+    table = dynamodb.Table(JOBS_TABLE)
+    response = table.scan(FilterExpression='userId = :uid', ExpressionAttributeValues={':uid': user_id})
+    return response.get('Items', [])
+
+def get_job(job_id: str):
+    table = dynamodb.Table(JOBS_TABLE)
+    response = table.get_item(Key={'jobId': job_id})
+    return response.get('Item', {})
 
 # Thêm CORS để front-end trên S3 gọi được API
 app.add_middleware(
@@ -19,27 +76,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from jose import jwt, JWTError
-from fastapi import Depends, HTTPException
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-
-security = HTTPBearer()
-
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    token = credentials.credentials
-    try:
-        payload = jwt.decode(token, options={"verify_signature": False})  # Demo only, add verification in production
-        return payload
-    except JWTError:
-        raise HTTPException(401, "Invalid token")
-
 s3 = boto3.client('s3')
 UPLOAD_BUCKET = 'source-bucket-oabga'  # Set in EC2 env if needed
 DATALAKE_BUCKET = 'data-lake-bucket-processed'
-
-@app.get("/health")
-async def health_check():
-    return {"status": "ok"}
 
 @app.post("/api/upload")
 async def upload_csv(file: UploadFile = File(...), user=Depends(get_current_user)):

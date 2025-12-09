@@ -1,7 +1,7 @@
 import boto3
 from datetime import datetime
 
-dynamodb = boto3.resource('dynamodb')
+dynamodb = boto3.resource('dynamodb', region_name='ap-southeast-1')
 JOBS_TABLE = 'JobsTable'
 
 def create_job(job_id: str, user_id: str, filename: str, key: str):
