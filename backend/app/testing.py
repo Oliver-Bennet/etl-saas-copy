@@ -17,6 +17,20 @@ from datetime import datetime
 dynamodb = boto3.resource('dynamodb')
 JOBS_TABLE = 'JobsTable'
 
+from jose import jwt, JWTError
+from fastapi import Depends, HTTPException
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
+security = HTTPBearer()
+
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, options={"verify_signature": False})  # Demo only, add verification in production
+        return payload
+    except JWTError:
+        raise HTTPException(401, "Invalid token")
+
 def create_job(job_id: str, user_id: str, filename: str, key: str):
     table = dynamodb.Table(JOBS_TABLE)
     table.put_item(Item={

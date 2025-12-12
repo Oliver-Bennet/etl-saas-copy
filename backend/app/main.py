@@ -19,27 +19,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from jose import jwt, JWTError
-from fastapi import Depends, HTTPException
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-
-security = HTTPBearer()
-
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    token = credentials.credentials
-    try:
-        payload = jwt.decode(token, options={"verify_signature": False})  # Demo only, add verification in production
-        return payload
-    except JWTError:
-        raise HTTPException(401, "Invalid token")
-
 s3 = boto3.client('s3')
 UPLOAD_BUCKET = 'source-bucket-oabga'  # Set in EC2 env if needed
 DATALAKE_BUCKET = 'data-lake-bucket-processed'
-
-@app.get("/health")
-async def health_check():
-    return {"status": "ok"}
 
 @app.post("/api/upload")
 async def upload_csv(file: UploadFile = File(...), user=Depends(get_current_user)):

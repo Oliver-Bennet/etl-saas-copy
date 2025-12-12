@@ -21,6 +21,6 @@ def get_jobs_by_user(user_id: str):
     return response.get('Items', [])
 
 def get_job(job_id: str):
-    table = dynamodb.Table(JOBS_TABLE)
+    table = dynamodb.Table(JOBS_TABLE)  
     response = table.get_item(Key={'jobId': job_id})
     return response.get('Item', {})
