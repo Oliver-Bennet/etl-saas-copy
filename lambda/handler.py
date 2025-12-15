@@ -12,7 +12,7 @@ dynamodb = boto3.resource('dynamodb')
 
 JOBS_TABLE = 'JobsTable'
 SCHEMA_TABLE = 'SchemaTable'
-DATALAKE_BUCKET = 'data-lake-bucket-processed'
+DATALAKE_BUCKET = 'data-lake-bucket-processed-use1'
 
 def lambda_handler(event, context):
     try:
